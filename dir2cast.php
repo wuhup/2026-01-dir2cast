@@ -176,8 +176,9 @@ class getID3_Podcast_Helper implements Podcast_Helper {
 
             if(!empty($info['comments']))
             {
-                if(!empty($info['comments']['title'][0]))
-                    $item->setID3Title( $info['comments']['title'][0] );
+                $selected_title = $this->selectTitleFromInfo($info);
+                if($selected_title !== null)
+                    $item->setID3Title($selected_title);
                 if(!empty($info['comments']['artist'][0]))
                     $item->setID3Artist( $info['comments']['artist'][0] );
                 if(!empty($info['comments']['album'][0]))
@@ -208,6 +209,75 @@ class getID3_Podcast_Helper implements Podcast_Helper {
             
             $item->setAnalyzed(true);
         }
+    }
+
+    protected function selectTitleFromInfo($info)
+    {
+        if(empty($info['comments']['title']))
+            return null;
+
+        $titles = array();
+        foreach($info['comments']['title'] as $title)
+        {
+            if(is_string($title) && trim($title) !== '')
+                $titles[] = $title;
+        }
+
+        if(empty($titles))
+            return null;
+
+        $chapter_titles = $this->extractChapterTitles($info);
+        if(!empty($chapter_titles) && count($titles) > 1)
+        {
+            $normalized_chapters = array();
+            foreach($chapter_titles as $chapter_title)
+            {
+                if(is_string($chapter_title) && trim($chapter_title) !== '')
+                    $normalized_chapters[] = trim($chapter_title);
+            }
+
+            foreach($titles as $title)
+            {
+                if(!in_array(trim($title), $normalized_chapters, true))
+                    return $title;
+            }
+        }
+
+        return $titles[0];
+    }
+
+    protected function extractChapterTitles($info)
+    {
+        $titles = array();
+
+        if(!empty($info['quicktime']['chapters']) && is_array($info['quicktime']['chapters']))
+        {
+            foreach($info['quicktime']['chapters'] as $chapter)
+            {
+                if(!empty($chapter['title']))
+                    $titles[] = $chapter['title'];
+            }
+        }
+
+        if(!empty($info['quicktime']['comments']['chapters']) && is_array($info['quicktime']['comments']['chapters']))
+        {
+            foreach($info['quicktime']['comments']['chapters'] as $chapter_title)
+            {
+                if(is_string($chapter_title) && trim($chapter_title) !== '')
+                    $titles[] = $chapter_title;
+            }
+        }
+
+        if(!empty($info['id3v2']['chapters']) && is_array($info['id3v2']['chapters']))
+        {
+            foreach($info['id3v2']['chapters'] as $chapter)
+            {
+                if(!empty($chapter['chapter_name']))
+                    $titles[] = $chapter['chapter_name'];
+            }
+        }
+
+        return array_values(array_unique($titles));
     }
 }
 
